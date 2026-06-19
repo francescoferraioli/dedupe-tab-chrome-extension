@@ -5,8 +5,10 @@ Chrome extension that detects when you open a tab for a URL you already have ope
 ## Behavior
 
 1. You open a new tab that navigates to an `http` or `https` URL.
-2. If another tab already has the same URL (ignoring trailing slashes and hash fragments), a notification appears.
-3. Choose **Switch to existing tab** to focus the older tab and close the duplicate, or **Keep new tab** to leave both open.
+2. If another tab already has the same URL (ignoring trailing slashes and hash fragments), the extension switches to the existing tab and shows a popup.
+3. After 5 seconds, the duplicate tab closes automatically. Click **Keep new tab** in the popup to cancel and stay on the new tab.
+
+The prompt opens in a small focused popup window (not a system notification), so it stays visible even when macOS or Chrome hides extension notifications.
 
 ## Development
 

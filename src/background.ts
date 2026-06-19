@@ -1,17 +1,28 @@
 import {
-  handleNotificationButton,
-  handleNotificationDismiss,
+  handlePromptChoice,
+  handlePromptWindowClosed,
   showDuplicatePrompt,
 } from "./prompts.js";
 import { clearTabPrompts, hasPrompted, markPrompted } from "./session.js";
 import { findDuplicateMatch, snapshotTabs } from "./tabs.js";
-import type { TabId } from "./types.js";
+import { isPromptChoiceMessage, type TabId } from "./types.js";
+import { normalizeUrl } from "./url.js";
 
 const evaluateTab = async (tabId: TabId): Promise<void> => {
   const tabs = await chrome.tabs.query({});
   const snapshots = snapshotTabs(tabs);
-  const match = findDuplicateMatch(snapshots, tabId);
 
+  const targetTab = snapshots.find((tab) => tab.id === tabId);
+  if (targetTab === undefined) {
+    return;
+  }
+
+  const normalizedUrl = normalizeUrl(targetTab.url);
+  if (normalizedUrl === null) {
+    return;
+  }
+
+  const match = findDuplicateMatch(snapshots, tabId);
   if (match === null) {
     return;
   }
@@ -42,12 +53,22 @@ const onTabRemoved = (tabId: TabId): void => {
 chrome.tabs.onUpdated.addListener(onTabUpdated);
 chrome.tabs.onRemoved.addListener(onTabRemoved);
 
-chrome.notifications.onButtonClicked.addListener(
-  (notificationId, buttonIndex) => {
-    void handleNotificationButton(notificationId, buttonIndex);
-  },
-);
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!isPromptChoiceMessage(message)) {
+    return false;
+  }
 
-chrome.notifications.onClosed.addListener((notificationId) => {
-  void handleNotificationDismiss(notificationId);
+  void handlePromptChoice(message.promptId, message.choice)
+    .then(() => {
+      sendResponse({ ok: true });
+    })
+    .catch(() => {
+      sendResponse({ ok: false });
+    });
+
+  return true;
+});
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  void handlePromptWindowClosed(windowId);
 });

@@ -1,3 +1,4 @@
+import { AUTO_CLOSE_DELAY_MS, AUTO_CLOSE_DELAY_SECONDS } from "./config.js";
 import { formatTabLabel } from "./tabs.js";
 import type {
   DuplicateMatch,
@@ -6,10 +7,8 @@ import type {
   TabId,
 } from "./types.js";
 
-const SWITCH_BUTTON = 0;
-const KEEP_BUTTON = 1;
-
 const pendingPrompts = new Map<string, PendingPrompt>();
+const autoCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 export const createPromptId = (match: DuplicateMatch): string =>
   `dedupe-${match.newTab.id}-${match.existingTab.id}`;
@@ -17,47 +16,65 @@ export const createPromptId = (match: DuplicateMatch): string =>
 export const registerPendingPrompt = (
   prompt: PendingPrompt,
 ): void => {
-  pendingPrompts.set(prompt.notificationId, prompt);
+  pendingPrompts.set(prompt.promptId, prompt);
 };
 
 export const resolvePendingPrompt = (
-  notificationId: string,
+  promptId: string,
 ): PendingPrompt | null => {
-  const prompt = pendingPrompts.get(notificationId) ?? null;
-  pendingPrompts.delete(notificationId);
+  const prompt = pendingPrompts.get(promptId) ?? null;
+  pendingPrompts.delete(promptId);
   return prompt;
 };
 
-export const showDuplicatePrompt = async (
-  match: DuplicateMatch,
-): Promise<void> => {
-  const notificationId = createPromptId(match);
-  const label = formatTabLabel(match.normalizedUrl);
+export const findPendingPromptByWindow = (
+  windowId: number,
+): PendingPrompt | null => {
+  for (const prompt of pendingPrompts.values()) {
+    if (prompt.windowId === windowId) {
+      return prompt;
+    }
+  }
 
-  registerPendingPrompt({
-    notificationId,
-    newTabId: match.newTab.id,
-    existingTabId: match.existingTab.id,
-  });
-
-  await chrome.notifications.create(notificationId, {
-    type: "basic",
-    iconUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='8' fill='%234285f4'/%3E%3Ctext x='24' y='32' text-anchor='middle' font-size='24' fill='white' font-family='sans-serif'%3E%3C/text%3E%3C/svg%3E",
-    title: "Duplicate tab detected",
-    message: `You already have "${label}" open. Switch to the existing tab instead?`,
-    buttons: [
-      { title: "Switch to existing tab" },
-      { title: "Keep new tab" },
-    ],
-    requireInteraction: true,
-  });
+  return null;
 };
 
-export const clearPrompt = async (
-  notificationId: string,
+const cancelAutoClose = (promptId: string): void => {
+  const timer = autoCloseTimers.get(promptId);
+  if (timer === undefined) {
+    return;
+  }
+
+  clearTimeout(timer);
+  autoCloseTimers.delete(promptId);
+};
+
+const buildPromptUrl = (
+  promptId: string,
+  label: string,
+): string => {
+  const url = new URL(chrome.runtime.getURL("prompt.html"));
+  url.searchParams.set("promptId", promptId);
+  url.searchParams.set("label", label);
+  url.searchParams.set(
+    "countdownSeconds",
+    String(AUTO_CLOSE_DELAY_SECONDS),
+  );
+  return url.toString();
+};
+
+const closePromptWindow = async (
+  windowId: number | undefined,
 ): Promise<void> => {
-  pendingPrompts.delete(notificationId);
-  await chrome.notifications.clear(notificationId);
+  if (windowId === undefined) {
+    return;
+  }
+
+  try {
+    await chrome.windows.remove(windowId);
+  } catch {
+    // Window may already be closed.
+  }
 };
 
 const focusTab = async (tabId: TabId): Promise<void> => {
@@ -66,58 +83,110 @@ const focusTab = async (tabId: TabId): Promise<void> => {
   await chrome.tabs.update(tabId, { active: true });
 };
 
+const closeDuplicateTab = async (tabId: TabId): Promise<void> => {
+  try {
+    await chrome.tabs.remove(tabId);
+  } catch {
+    // Tab may already be gone.
+  }
+};
+
+const executeAutoClose = async (promptId: string): Promise<void> => {
+  autoCloseTimers.delete(promptId);
+
+  const prompt = resolvePendingPrompt(promptId);
+  if (prompt === null) {
+    return;
+  }
+
+  await closeDuplicateTab(prompt.newTabId);
+  await closePromptWindow(prompt.windowId);
+};
+
+const scheduleAutoClose = (promptId: string): void => {
+  cancelAutoClose(promptId);
+
+  const timer = setTimeout(() => {
+    void executeAutoClose(promptId);
+  }, AUTO_CLOSE_DELAY_MS);
+
+  autoCloseTimers.set(promptId, timer);
+};
+
+export const showDuplicatePrompt = async (
+  match: DuplicateMatch,
+): Promise<void> => {
+  const promptId = createPromptId(match);
+  const label = formatTabLabel(match.normalizedUrl);
+  const promptUrl = buildPromptUrl(promptId, label);
+
+  await focusTab(match.existingTab.id);
+
+  try {
+    const promptWindow = await chrome.windows.create({
+      url: promptUrl,
+      type: "popup",
+      width: 440,
+      height: 240,
+      focused: true,
+    });
+
+    if (promptWindow.id === undefined) {
+      throw new Error("Prompt window was created without an id");
+    }
+
+    registerPendingPrompt({
+      promptId,
+      newTabId: match.newTab.id,
+      existingTabId: match.existingTab.id,
+      windowId: promptWindow.id,
+    });
+
+    scheduleAutoClose(promptId);
+  } catch (error) {
+    cancelAutoClose(promptId);
+    pendingPrompts.delete(promptId);
+    throw error;
+  }
+};
+
 export const applyPromptChoice = async (
   prompt: PendingPrompt,
   choice: PromptChoice,
 ): Promise<void> => {
   if (choice === "switch") {
     await focusTab(prompt.existingTabId);
-    await chrome.tabs.remove(prompt.newTabId);
+    await closeDuplicateTab(prompt.newTabId);
     return;
   }
 
   await focusTab(prompt.newTabId);
 };
 
-export const choiceFromButtonIndex = (
-  buttonIndex: number,
-): PromptChoice | null => {
-  if (buttonIndex === SWITCH_BUTTON) {
-    return "switch";
-  }
-
-  if (buttonIndex === KEEP_BUTTON) {
-    return "keep";
-  }
-
-  return null;
-};
-
-export const handleNotificationButton = async (
-  notificationId: string,
-  buttonIndex: number,
+export const handlePromptChoice = async (
+  promptId: string,
+  choice: PromptChoice,
 ): Promise<void> => {
-  const prompt = resolvePendingPrompt(notificationId);
-  if (prompt === null) {
-    return;
-  }
+  cancelAutoClose(promptId);
 
-  const choice = choiceFromButtonIndex(buttonIndex);
-  if (choice === null) {
+  const prompt = resolvePendingPrompt(promptId);
+  if (prompt === null) {
     return;
   }
 
   await applyPromptChoice(prompt, choice);
-  await clearPrompt(notificationId);
+  await closePromptWindow(prompt.windowId);
 };
 
-export const handleNotificationDismiss = async (
-  notificationId: string,
+export const handlePromptWindowClosed = async (
+  windowId: number,
 ): Promise<void> => {
-  const prompt = resolvePendingPrompt(notificationId);
+  const prompt = findPendingPromptByWindow(windowId);
   if (prompt === null) {
     return;
   }
 
+  cancelAutoClose(prompt.promptId);
+  resolvePendingPrompt(prompt.promptId);
   await focusTab(prompt.newTabId);
 };
