@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Duplicate tab with different details</title>
+    <link rel="stylesheet" href="variant-prompt.css" />
+  </head>
+  <body>
+    <main class="prompt">
+      <h1>Same page, different details</h1>
+      <p>
+        You opened
+        <strong id="label"></strong>
+        but another tab already has the same page with different URL details.
+      </p>
+      <section id="search-section" class="detail-section" hidden>
+        <h2>Query string</h2>
+        <ul>
+          <li>New tab: <strong id="new-search"></strong></li>
+          <li>Existing tab: <strong id="existing-search"></strong></li>
+        </ul>
+      </section>
+      <section id="hash-section" class="detail-section" hidden>
+        <h2>Hash</h2>
+        <ul>
+          <li>New tab: <strong id="new-hash"></strong></li>
+          <li>Existing tab: <strong id="existing-hash"></strong></li>
+        </ul>
+      </section>
+      <div class="actions">
+        <button id="switch" type="button" class="primary">
+          Switch to existing tab
+        </button>
+        <button id="close-other" type="button">Close other tab</button>
+        <button id="keep" type="button">Keep both tabs</button>
+      </div>
+    </main>
+    <script src="variant-prompt-page.js"></script>
+  </body>
+</html>

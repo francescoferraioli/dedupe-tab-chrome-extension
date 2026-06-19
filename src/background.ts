@@ -5,7 +5,13 @@ import {
 } from "./auto-close.js";
 import { clearTabPrompts, hasPrompted, markPrompted } from "./session.js";
 import { findDuplicateMatch, snapshotTabs } from "./tabs.js";
-import type { TabId } from "./types.js";
+import {
+  clearPendingVariantPromptForTab,
+  handleVariantPromptChoice,
+  handleVariantPromptWindowClosed,
+  showVariantPrompt,
+} from "./variant-prompt.js";
+import { isVariantPromptChoiceMessage, type TabId } from "./types.js";
 import { normalizeUrl } from "./url.js";
 
 const evaluateTab = async (tabId: TabId): Promise<void> => {
@@ -32,7 +38,13 @@ const evaluateTab = async (tabId: TabId): Promise<void> => {
   }
 
   markPrompted(tabId, match.normalizedUrl);
-  await handleDuplicateTab(match);
+
+  if (match.kind === "exact") {
+    await handleDuplicateTab(match);
+    return;
+  }
+
+  await showVariantPrompt(match);
 };
 
 const onTabUpdated = (
@@ -52,9 +64,30 @@ const onTabActivated = (activeInfo: chrome.tabs.TabActiveInfo): void => {
 
 const onTabRemoved = (tabId: TabId): void => {
   clearPendingClosureForTab(tabId);
+  clearPendingVariantPromptForTab(tabId);
   clearTabPrompts(tabId);
 };
 
 chrome.tabs.onUpdated.addListener(onTabUpdated);
 chrome.tabs.onActivated.addListener(onTabActivated);
 chrome.tabs.onRemoved.addListener(onTabRemoved);
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (!isVariantPromptChoiceMessage(message)) {
+    return false;
+  }
+
+  void handleVariantPromptChoice(message.promptId, message.choice)
+    .then(() => {
+      sendResponse({ ok: true });
+    })
+    .catch(() => {
+      sendResponse({ ok: false });
+    });
+
+  return true;
+});
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  void handleVariantPromptWindowClosed(windowId);
+});

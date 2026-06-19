@@ -1,6 +1,13 @@
-import type { NormalizedUrl } from "./types.js";
+import type { NormalizedUrl, UrlPath } from "./types.js";
 
 const DEDUPE_SCHEMES = new Set(["http:", "https:"]);
+
+export type UrlMatchKind = "exact" | "variant" | "none";
+
+export type UrlPartDifference = Readonly<{
+  searchDiffers: boolean;
+  hashDiffers: boolean;
+}>;
 
 const isDedupeEligible = (url: string): boolean => {
   try {
@@ -15,28 +22,104 @@ const stripTrailingSlash = (pathname: string): string =>
     ? pathname.slice(0, -1)
     : pathname;
 
-export const normalizeUrl = (rawUrl: string): NormalizedUrl | null => {
+const parseEligibleUrl = (rawUrl: string): URL | null => {
   if (!isDedupeEligible(rawUrl)) {
     return null;
   }
 
   const parsed = new URL(rawUrl);
-  parsed.hash = "";
   parsed.pathname = stripTrailingSlash(parsed.pathname);
+  return parsed;
+};
+
+const formatOptionalUrlPart = (value: string): string =>
+  value.length > 0 ? value : "(none)";
+
+export const normalizeUrl = (rawUrl: string): NormalizedUrl | null => {
+  const parsed = parseEligibleUrl(rawUrl);
+  if (parsed === null) {
+    return null;
+  }
 
   return parsed.toString() as NormalizedUrl;
+};
+
+export const normalizeUrlPath = (rawUrl: string): UrlPath | null => {
+  const parsed = parseEligibleUrl(rawUrl);
+  if (parsed === null) {
+    return null;
+  }
+
+  parsed.search = "";
+  parsed.hash = "";
+  return parsed.toString() as UrlPath;
+};
+
+export const classifyUrlMatch = (
+  left: string,
+  right: string,
+): UrlMatchKind => {
+  const normalizedLeft = normalizeUrl(left);
+  const normalizedRight = normalizeUrl(right);
+  if (normalizedLeft === null || normalizedRight === null) {
+    return "none";
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return "exact";
+  }
+
+  const pathLeft = normalizeUrlPath(left);
+  const pathRight = normalizeUrlPath(right);
+  if (pathLeft === null || pathRight === null) {
+    return "none";
+  }
+
+  return pathLeft === pathRight ? "variant" : "none";
+};
+
+export const describeUrlPartDifference = (
+  left: string,
+  right: string,
+): UrlPartDifference => {
+  const leftParsed = parseEligibleUrl(left);
+  const rightParsed = parseEligibleUrl(right);
+  if (leftParsed === null || rightParsed === null) {
+    return { searchDiffers: false, hashDiffers: false };
+  }
+
+  return {
+    searchDiffers: leftParsed.search !== rightParsed.search,
+    hashDiffers: leftParsed.hash !== rightParsed.hash,
+  };
+};
+
+export const formatSearch = (rawUrl: string): string => {
+  const parsed = parseEligibleUrl(rawUrl);
+  return parsed === null ? "(none)" : formatOptionalUrlPart(parsed.search);
+};
+
+export const formatHash = (rawUrl: string): string => {
+  const parsed = parseEligibleUrl(rawUrl);
+  return parsed === null ? "(none)" : formatOptionalUrlPart(parsed.hash);
+};
+
+export const formatPathLabel = (rawUrl: string): string => {
+  const path = normalizeUrlPath(rawUrl);
+  if (path === null) {
+    return rawUrl;
+  }
+
+  try {
+    const parsed = new URL(path);
+    const pathname = parsed.pathname === "/" ? "" : parsed.pathname;
+    return `${parsed.hostname}${pathname}`;
+  } catch {
+    return path;
+  }
 };
 
 export const urlsMatch = (
   left: string,
   right: string,
-): boolean => {
-  const normalizedLeft = normalizeUrl(left);
-  const normalizedRight = normalizeUrl(right);
-
-  return (
-    normalizedLeft !== null &&
-    normalizedRight !== null &&
-    normalizedLeft === normalizedRight
-  );
-};
+): boolean => classifyUrlMatch(left, right) === "exact";

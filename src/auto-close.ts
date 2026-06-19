@@ -1,4 +1,5 @@
 import { AUTO_CLOSE_DELAY_MS } from "./config.js";
+import { closeTab, focusTab } from "./tab-actions.js";
 import type { DuplicateMatch, PendingClosure, TabId } from "./types.js";
 
 const pendingClosures = new Map<string, PendingClosure>();
@@ -37,20 +38,6 @@ const cancelAutoClose = (closureId: string): void => {
   autoCloseTimers.delete(closureId);
 };
 
-const focusTab = async (tabId: TabId): Promise<void> => {
-  const tab = await chrome.tabs.get(tabId);
-  await chrome.windows.update(tab.windowId, { focused: true });
-  await chrome.tabs.update(tabId, { active: true });
-};
-
-const closeDuplicateTab = async (tabId: TabId): Promise<void> => {
-  try {
-    await chrome.tabs.remove(tabId);
-  } catch {
-    // Tab may already be gone.
-  }
-};
-
 const executeAutoClose = async (closureId: string): Promise<void> => {
   autoCloseTimers.delete(closureId);
 
@@ -59,7 +46,7 @@ const executeAutoClose = async (closureId: string): Promise<void> => {
     return;
   }
 
-  await closeDuplicateTab(closure.newTabId);
+  await closeTab(closure.newTabId);
 };
 
 const scheduleAutoClose = (closureId: string): void => {

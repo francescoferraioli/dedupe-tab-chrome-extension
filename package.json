@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "generate-icons": "node scripts/generate-icons.mjs",
-    "build": "npm run generate-icons && esbuild src/background.ts --bundle --outfile=dist/background.js --format=esm --target=es2022 --minify && mkdir -p dist/icons && cp manifest.json dist/ && cp icons/*.png dist/icons/",
-    "watch": "npm run generate-icons && esbuild src/background.ts --bundle --outfile=dist/background.js --format=esm --target=es2022 --watch",
+    "build": "npm run generate-icons && esbuild src/background.ts --bundle --outfile=dist/background.js --format=esm --target=es2022 --minify && esbuild src/variant-prompt-page.ts --bundle --outfile=dist/variant-prompt-page.js --format=iife --target=es2022 --minify && mkdir -p dist/icons && cp manifest.json dist/ && cp src/variant-prompt.html dist/ && cp src/variant-prompt.css dist/ && cp icons/*.png dist/icons/",
+    "watch": "npm run generate-icons && esbuild src/background.ts --bundle --outfile=dist/background.js --format=esm --target=es2022 --watch & esbuild src/variant-prompt-page.ts --bundle --outfile=dist/variant-prompt-page.js --format=iife --target=es2022 --watch",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

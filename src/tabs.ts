@@ -1,7 +1,6 @@
-import { normalizeUrl } from "./url.js";
+import { classifyUrlMatch, normalizeUrl, normalizeUrlPath } from "./url.js";
 import type {
   DuplicateMatch,
-  NormalizedUrl,
   TabId,
   TabSnapshot,
 } from "./types.js";
@@ -34,6 +33,24 @@ const byMostRecentlyUsed =
     left.index - right.index ||
     left.id - right.id;
 
+const toDuplicateMatch = (
+  kind: DuplicateMatch["kind"],
+  newTab: TabSnapshot,
+  existingTab: TabSnapshot,
+): DuplicateMatch | null => {
+  const normalizedUrl = normalizeUrl(newTab.url);
+  if (normalizedUrl === null) {
+    return null;
+  }
+
+  return {
+    kind,
+    newTab,
+    existingTab,
+    normalizedUrl,
+  };
+};
+
 export const findDuplicateMatch = (
   tabs: readonly TabSnapshot[],
   newTabId: TabId,
@@ -44,36 +61,28 @@ export const findDuplicateMatch = (
   }
 
   const normalizedUrl = normalizeUrl(newTab.url);
-  if (normalizedUrl === null) {
+  const urlPath = normalizeUrlPath(newTab.url);
+  if (normalizedUrl === null || urlPath === null) {
     return null;
   }
 
-  const existingTab = tabs
-    .filter(
-      (tab) =>
-        tab.id !== newTabId &&
-        normalizeUrl(tab.url) === normalizedUrl,
-    )
-    .sort(byMostRecentlyUsed)[0];
+  const otherTabs = tabs
+    .filter((tab) => tab.id !== newTabId)
+    .sort(byMostRecentlyUsed);
 
-  if (existingTab === undefined) {
-    return null;
+  const exactTab = otherTabs.find(
+    (tab) => classifyUrlMatch(newTab.url, tab.url) === "exact",
+  );
+  if (exactTab !== undefined) {
+    return toDuplicateMatch("exact", newTab, exactTab);
   }
 
-  return {
-    newTab,
-    existingTab,
-    normalizedUrl,
-  };
-};
-
-export const formatTabLabel = (url: NormalizedUrl): string => {
-  try {
-    const parsed = new URL(url);
-    const path =
-      parsed.pathname === "/" ? "" : parsed.pathname;
-    return `${parsed.hostname}${path}`;
-  } catch {
-    return url;
+  const variantTab = otherTabs.find(
+    (tab) => classifyUrlMatch(newTab.url, tab.url) === "variant",
+  );
+  if (variantTab !== undefined) {
+    return toDuplicateMatch("variant", newTab, variantTab);
   }
+
+  return null;
 };
