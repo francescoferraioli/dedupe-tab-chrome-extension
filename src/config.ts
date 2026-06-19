@@ -1,1 +1,3 @@
 export const AUTO_CLOSE_DELAY_MS = 2000;
+
+export const VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS = 5000;

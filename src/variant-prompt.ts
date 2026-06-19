@@ -1,4 +1,5 @@
 import { handleDuplicateTab } from "./auto-close.js";
+import { VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS } from "./config.js";
 import { closeTab, focusTab } from "./tab-actions.js";
 import type {
   DuplicateMatch,
@@ -14,9 +15,34 @@ import {
 } from "./url.js";
 
 const pendingVariantPrompts = new Map<string, PendingVariantPrompt>();
+const promptAutoCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const createPromptId = (match: DuplicateMatch): string =>
   `variant-${match.newTab.id}-${match.existingTab.id}`;
+
+const cancelPromptAutoClose = (promptId: string): void => {
+  const timer = promptAutoCloseTimers.get(promptId);
+  if (timer === undefined) {
+    return;
+  }
+
+  clearTimeout(timer);
+  promptAutoCloseTimers.delete(promptId);
+};
+
+const schedulePromptAutoClose = (
+  promptId: string,
+  windowId: number,
+): void => {
+  cancelPromptAutoClose(promptId);
+
+  const timer = setTimeout(() => {
+    promptAutoCloseTimers.delete(promptId);
+    void closePromptWindow(windowId);
+  }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
+
+  promptAutoCloseTimers.set(promptId, timer);
+};
 
 const registerPendingVariantPrompt = (
   prompt: PendingVariantPrompt,
@@ -103,7 +129,10 @@ export const showVariantPrompt = async (
       match,
       windowId: promptWindow.id,
     });
+
+    schedulePromptAutoClose(promptId, promptWindow.id);
   } catch (error) {
+    cancelPromptAutoClose(promptId);
     pendingVariantPrompts.delete(promptId);
     throw error;
   }
@@ -113,6 +142,8 @@ export const handleVariantPromptChoice = async (
   promptId: string,
   choice: VariantPromptChoice,
 ): Promise<void> => {
+  cancelPromptAutoClose(promptId);
+
   const prompt = resolvePendingVariantPrompt(promptId);
   if (prompt === null) {
     return;
@@ -153,6 +184,7 @@ export const clearPendingVariantPromptForTab = (tabId: TabId): void => {
       prompt.match.existingTab.id === tabId
     ) {
       pendingVariantPrompts.delete(promptId);
+      cancelPromptAutoClose(promptId);
       void closePromptWindow(prompt.windowId);
     }
   }
