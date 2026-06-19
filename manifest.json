@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Dedupe Tab",
+  "version": "1.0.0",
+  "description": "Prompts to switch to an existing tab when you open a duplicate URL.",
+  "permissions": ["tabs", "notifications"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  }
+}
