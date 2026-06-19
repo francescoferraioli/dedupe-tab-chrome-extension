@@ -1,14 +1,13 @@
 # Dedupe Tab
 
-Chrome extension that detects when you open a tab for a URL you already have open, and asks whether to switch to the existing tab instead.
+Chrome extension that detects when you open a tab for a URL you already have open, switches you to the existing tab, and closes the duplicate unless you refocus it in time.
 
 ## Behavior
 
 1. You open a new tab that navigates to an `http` or `https` URL.
-2. If another tab already has the same URL (ignoring trailing slashes and hash fragments), the extension switches to the existing tab and shows a popup.
-3. After 5 seconds, the duplicate tab closes automatically. Click **Keep new tab** in the popup to cancel and stay on the new tab.
-
-The prompt opens in a small focused popup window (not a system notification), so it stays visible even when macOS or Chrome hides extension notifications.
+2. If another tab already has the same URL (ignoring trailing slashes and hash fragments), the extension switches to the existing tab.
+3. After 2 seconds, the duplicate tab closes automatically.
+4. Switch back to the duplicate tab before the timer expires to keep it open.
 
 ## Development
 

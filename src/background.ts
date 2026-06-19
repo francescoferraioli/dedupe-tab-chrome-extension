@@ -1,11 +1,11 @@
 import {
-  handlePromptChoice,
-  handlePromptWindowClosed,
-  showDuplicatePrompt,
-} from "./prompts.js";
+  clearPendingClosureForTab,
+  handleDuplicateTab,
+  keepDuplicateTab,
+} from "./auto-close.js";
 import { clearTabPrompts, hasPrompted, markPrompted } from "./session.js";
 import { findDuplicateMatch, snapshotTabs } from "./tabs.js";
-import { isPromptChoiceMessage, type TabId } from "./types.js";
+import type { TabId } from "./types.js";
 import { normalizeUrl } from "./url.js";
 
 const evaluateTab = async (tabId: TabId): Promise<void> => {
@@ -32,7 +32,7 @@ const evaluateTab = async (tabId: TabId): Promise<void> => {
   }
 
   markPrompted(tabId, match.normalizedUrl);
-  await showDuplicatePrompt(match);
+  await handleDuplicateTab(match);
 };
 
 const onTabUpdated = (
@@ -46,29 +46,15 @@ const onTabUpdated = (
   void evaluateTab(tabId);
 };
 
+const onTabActivated = (activeInfo: chrome.tabs.TabActiveInfo): void => {
+  keepDuplicateTab(activeInfo.tabId);
+};
+
 const onTabRemoved = (tabId: TabId): void => {
+  clearPendingClosureForTab(tabId);
   clearTabPrompts(tabId);
 };
 
 chrome.tabs.onUpdated.addListener(onTabUpdated);
+chrome.tabs.onActivated.addListener(onTabActivated);
 chrome.tabs.onRemoved.addListener(onTabRemoved);
-
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!isPromptChoiceMessage(message)) {
-    return false;
-  }
-
-  void handlePromptChoice(message.promptId, message.choice)
-    .then(() => {
-      sendResponse({ ok: true });
-    })
-    .catch(() => {
-      sendResponse({ ok: false });
-    });
-
-  return true;
-});
-
-chrome.windows.onRemoved.addListener((windowId) => {
-  void handlePromptWindowClosed(windowId);
-});

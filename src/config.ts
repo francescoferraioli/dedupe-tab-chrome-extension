@@ -1,3 +1,1 @@
-export const AUTO_CLOSE_DELAY_MS = 5000;
-
-export const AUTO_CLOSE_DELAY_SECONDS = AUTO_CLOSE_DELAY_MS / 1000;
+export const AUTO_CLOSE_DELAY_MS = 2000;
