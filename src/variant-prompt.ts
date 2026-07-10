@@ -1,5 +1,4 @@
 import { handleDuplicateTab } from "./auto-close.js";
-import { VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS } from "./config.js";
 import { closeTab, focusTab } from "./tab-actions.js";
 import type {
   DuplicateMatch,
@@ -15,34 +14,9 @@ import {
 } from "./url.js";
 
 const pendingVariantPrompts = new Map<string, PendingVariantPrompt>();
-const promptAutoCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const createPromptId = (match: DuplicateMatch): string =>
   `variant-${match.newTab.id}-${match.existingTab.id}`;
-
-const cancelPromptAutoClose = (promptId: string): void => {
-  const timer = promptAutoCloseTimers.get(promptId);
-  if (timer === undefined) {
-    return;
-  }
-
-  clearTimeout(timer);
-  promptAutoCloseTimers.delete(promptId);
-};
-
-const schedulePromptAutoClose = (
-  promptId: string,
-  windowId: number,
-): void => {
-  cancelPromptAutoClose(promptId);
-
-  const timer = setTimeout(() => {
-    promptAutoCloseTimers.delete(promptId);
-    void closePromptWindow(windowId);
-  }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
-
-  promptAutoCloseTimers.set(promptId, timer);
-};
 
 const registerPendingVariantPrompt = (
   prompt: PendingVariantPrompt,
@@ -106,51 +80,42 @@ export const showVariantPrompt = async (
 ): Promise<void> => {
   const promptId = createPromptId(match);
 
-  try {
-    const pendingPrompt: PendingVariantPrompt = {
-      promptId,
-      match,
-    };
+  const pendingPrompt: PendingVariantPrompt = {
+    promptId,
+    match,
+  };
 
-    const promptWindow = await chrome.windows.create({
-      url: buildPromptUrl(pendingPrompt),
-      type: "popup",
-      width: 460,
-      height: 320,
-      focused: true,
-    });
+  const promptWindow = await chrome.windows.create({
+    url: buildPromptUrl(pendingPrompt),
+    type: "popup",
+    width: 460,
+    height: 320,
+    focused: true,
+  });
 
-    if (promptWindow.id === undefined) {
-      throw new Error("Variant prompt window was created without an id");
-    }
-
-    registerPendingVariantPrompt({
-      promptId,
-      match,
-      windowId: promptWindow.id,
-    });
-
-    schedulePromptAutoClose(promptId, promptWindow.id);
-  } catch (error) {
-    cancelPromptAutoClose(promptId);
-    pendingVariantPrompts.delete(promptId);
-    throw error;
+  if (promptWindow.id === undefined) {
+    throw new Error("Variant prompt window was created without an id");
   }
+
+  registerPendingVariantPrompt({
+    promptId,
+    match,
+    windowId: promptWindow.id,
+  });
 };
 
 export const handleVariantPromptChoice = async (
   promptId: string,
   choice: VariantPromptChoice,
 ): Promise<void> => {
-  cancelPromptAutoClose(promptId);
-
   const prompt = resolvePendingVariantPrompt(promptId);
   if (prompt === null) {
     return;
   }
 
+  await closePromptWindow(prompt.windowId);
+
   if (choice === "switch") {
-    await closePromptWindow(prompt.windowId);
     await handleDuplicateTab(prompt.match);
     return;
   }
@@ -158,12 +123,10 @@ export const handleVariantPromptChoice = async (
   if (choice === "close-other") {
     await focusTab(prompt.match.newTab.id);
     await closeTab(prompt.match.existingTab.id);
-    await closePromptWindow(prompt.windowId);
     return;
   }
 
   await focusTab(prompt.match.newTab.id);
-  await closePromptWindow(prompt.windowId);
 };
 
 export const handleVariantPromptWindowClosed = async (
@@ -184,7 +147,6 @@ export const clearPendingVariantPromptForTab = (tabId: TabId): void => {
       prompt.match.existingTab.id === tabId
     ) {
       pendingVariantPrompts.delete(promptId);
-      cancelPromptAutoClose(promptId);
       void closePromptWindow(prompt.windowId);
     }
   }

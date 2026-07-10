@@ -1,9 +1,13 @@
 import type { TabId } from "./types.js";
 
 export const focusTab = async (tabId: TabId): Promise<void> => {
-  const tab = await chrome.tabs.get(tabId);
-  await chrome.windows.update(tab.windowId, { focused: true });
-  await chrome.tabs.update(tabId, { active: true });
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    await chrome.windows.update(tab.windowId, { focused: true });
+    await chrome.tabs.update(tabId, { active: true });
+  } catch {
+    // Tab or window may already be gone.
+  }
 };
 
 export const closeTab = async (tabId: TabId): Promise<void> => {

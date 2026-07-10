@@ -1,4 +1,7 @@
+import { VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS } from "./config.js";
 import type { VariantPromptChoice } from "./types.js";
+
+let resolved = false;
 
 const readSearchParam = (key: string): string | null => {
   const value = new URLSearchParams(window.location.search).get(key);
@@ -12,11 +15,21 @@ const sendChoice = async (
   promptId: string,
   choice: VariantPromptChoice,
 ): Promise<void> => {
-  await chrome.runtime.sendMessage({
-    type: "variant-prompt-choice",
-    promptId,
-    choice,
-  });
+  if (resolved) {
+    return;
+  }
+
+  resolved = true;
+
+  try {
+    await chrome.runtime.sendMessage({
+      type: "variant-prompt-choice",
+      promptId,
+      choice,
+    });
+  } catch {
+    // Background may already have handled this prompt.
+  }
 
   window.close();
 };
@@ -91,6 +104,10 @@ const init = (): void => {
   bindButton(switchButton, promptId, "switch");
   bindButton(closeOtherButton, promptId, "close-other");
   bindButton(keepButton, promptId, "keep");
+
+  setTimeout(() => {
+    void sendChoice(promptId, "keep");
+  }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
 };
 
 init();

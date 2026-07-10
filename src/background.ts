@@ -1,5 +1,6 @@
 import {
   clearPendingClosureForTab,
+  handleAutoCloseAlarm,
   handleDuplicateTab,
   keepDuplicateTab,
 } from "./auto-close.js";
@@ -90,4 +91,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
 chrome.windows.onRemoved.addListener((windowId) => {
   void handleVariantPromptWindowClosed(windowId);
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  void handleAutoCloseAlarm(alarm);
 });

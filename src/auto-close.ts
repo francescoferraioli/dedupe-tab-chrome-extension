@@ -3,7 +3,6 @@ import { closeTab, focusTab } from "./tab-actions.js";
 import type { DuplicateMatch, PendingClosure, TabId } from "./types.js";
 
 const pendingClosures = new Map<string, PendingClosure>();
-const autoCloseTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 const createClosureId = (match: DuplicateMatch): string =>
   `dedupe-${match.newTab.id}-${match.existingTab.id}`;
@@ -29,18 +28,10 @@ const findPendingClosureByNewTab = (tabId: TabId): PendingClosure | null => {
 };
 
 const cancelAutoClose = (closureId: string): void => {
-  const timer = autoCloseTimers.get(closureId);
-  if (timer === undefined) {
-    return;
-  }
-
-  clearTimeout(timer);
-  autoCloseTimers.delete(closureId);
+  void chrome.alarms.clear(closureId);
 };
 
 const executeAutoClose = async (closureId: string): Promise<void> => {
-  autoCloseTimers.delete(closureId);
-
   const closure = resolvePendingClosure(closureId);
   if (closure === null) {
     return;
@@ -52,11 +43,15 @@ const executeAutoClose = async (closureId: string): Promise<void> => {
 const scheduleAutoClose = (closureId: string): void => {
   cancelAutoClose(closureId);
 
-  const timer = setTimeout(() => {
-    void executeAutoClose(closureId);
-  }, AUTO_CLOSE_DELAY_MS);
+  void chrome.alarms.create(closureId, {
+    when: Date.now() + AUTO_CLOSE_DELAY_MS,
+  });
+};
 
-  autoCloseTimers.set(closureId, timer);
+export const handleAutoCloseAlarm = async (
+  alarm: chrome.alarms.Alarm,
+): Promise<void> => {
+  await executeAutoClose(alarm.name);
 };
 
 export const handleDuplicateTab = async (
