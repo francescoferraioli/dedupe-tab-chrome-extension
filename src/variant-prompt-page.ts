@@ -105,6 +105,15 @@ const init = (): void => {
   bindButton(closeOtherButton, promptId, "close-other");
   bindButton(keepButton, promptId, "keep");
 
+  window.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    event.preventDefault();
+    void sendChoice(promptId, "keep");
+  });
+
   setTimeout(() => {
     void sendChoice(promptId, "keep");
   }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
