@@ -5,6 +5,11 @@ import {
   keepDuplicateTab,
 } from "./auto-close.js";
 import { clearTabPrompts, hasPrompted, markPrompted } from "./session.js";
+import {
+  BLACKLIST_REGEXES_STORAGE_KEY,
+  isUrlBlacklisted,
+  readSettings,
+} from "./settings.js";
 import { findDuplicateMatch, snapshotTabs } from "./tabs.js";
 import {
   clearPendingVariantPromptForTab,
@@ -15,7 +20,18 @@ import {
 import { isVariantPromptChoiceMessage, type TabId } from "./types.js";
 import { normalizeUrl } from "./url.js";
 
+let cachedBlacklistRegexes: readonly string[] = [];
+
+const refreshBlacklistCache = async (): Promise<void> => {
+  const settings = await readSettings();
+  cachedBlacklistRegexes = settings.blacklistRegexes;
+};
+
+const blacklistCacheReady = refreshBlacklistCache();
+
 const evaluateTab = async (tabId: TabId): Promise<void> => {
+  await blacklistCacheReady;
+
   const tabs = await chrome.tabs.query({});
   const snapshots = snapshotTabs(tabs);
 
@@ -26,6 +42,10 @@ const evaluateTab = async (tabId: TabId): Promise<void> => {
 
   const normalizedUrl = normalizeUrl(targetTab.url);
   if (normalizedUrl === null) {
+    return;
+  }
+
+  if (isUrlBlacklisted(normalizedUrl, cachedBlacklistRegexes)) {
     return;
   }
 
@@ -68,6 +88,23 @@ const onTabRemoved = (tabId: TabId): void => {
   clearPendingVariantPromptForTab(tabId);
   clearTabPrompts(tabId);
 };
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== "sync") {
+    return;
+  }
+
+  const change = changes[BLACKLIST_REGEXES_STORAGE_KEY];
+  if (change === undefined) {
+    return;
+  }
+
+  cachedBlacklistRegexes = Array.isArray(change.newValue)
+    ? change.newValue.filter(
+        (pattern): pattern is string => typeof pattern === "string",
+      )
+    : [];
+});
 
 chrome.tabs.onUpdated.addListener(onTabUpdated);
 chrome.tabs.onActivated.addListener(onTabActivated);

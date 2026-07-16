@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dedupe Tab settings</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="settings">
+      <h1>Dedupe Tab</h1>
+      <p>
+        Skip duplicate detection when the new tab URL matches any of these
+        regular expressions. One pattern per line. Leave blank to run on every
+        site.
+      </p>
+      <form id="settings-form">
+        <label for="blacklist-regexes">Blacklist regexes</label>
+        <textarea
+          id="blacklist-regexes"
+          name="blacklistRegexes"
+          rows="8"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder="github\.com&#10;^https://localhost&#10;canva\.com/.*settings"
+        ></textarea>
+        <p class="hint">
+          Matched against the full tab URL. A URL is skipped if it matches any
+          line.
+        </p>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <div class="actions">
+          <button id="save" type="submit" class="primary">Save</button>
+        </div>
+      </form>
+    </main>
+    <script src="options-page.js"></script>
+  </body>
+</html>

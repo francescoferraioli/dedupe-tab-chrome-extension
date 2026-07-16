@@ -8,7 +8,11 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["tabs", "alarms"],
+  "permissions": ["tabs", "alarms", "storage"],
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "background": {
     "service_worker": "background.js",
     "type": "module"
