@@ -123,3 +123,23 @@ export const urlsMatch = (
   left: string,
   right: string,
 ): boolean => classifyUrlMatch(left, right) === "exact";
+
+/** True when only the hash fragment changed (e.g. /page#a → /page#b or /page#a → /page). */
+export const isHashChangeNavigation = (
+  previousUrl: string,
+  nextUrl: string,
+): boolean => {
+  try {
+    const previous = new URL(previousUrl);
+    const next = new URL(nextUrl);
+    if (previous.hash === next.hash) {
+      return false;
+    }
+
+    previous.hash = "";
+    next.hash = "";
+    return previous.href === next.href;
+  } catch {
+    return false;
+  }
+};

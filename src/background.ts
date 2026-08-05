@@ -18,9 +18,10 @@ import {
   showVariantPrompt,
 } from "./variant-prompt.js";
 import { isVariantPromptChoiceMessage, type TabId } from "./types.js";
-import { normalizeUrl } from "./url.js";
+import { isHashChangeNavigation, normalizeUrl } from "./url.js";
 
 let cachedBlacklistRegexes: readonly string[] = [];
+const lastSeenUrls = new Map<TabId, string>();
 
 const refreshBlacklistCache = async (): Promise<void> => {
   const settings = await readSettings();
@@ -76,6 +77,16 @@ const onTabUpdated = (
     return;
   }
 
+  const previousUrl = lastSeenUrls.get(tabId);
+  lastSeenUrls.set(tabId, changeInfo.url);
+
+  if (
+    previousUrl !== undefined &&
+    isHashChangeNavigation(previousUrl, changeInfo.url)
+  ) {
+    return;
+  }
+
   void evaluateTab(tabId);
 };
 
@@ -84,6 +95,7 @@ const onTabActivated = (activeInfo: chrome.tabs.TabActiveInfo): void => {
 };
 
 const onTabRemoved = (tabId: TabId): void => {
+  lastSeenUrls.delete(tabId);
   clearPendingClosureForTab(tabId);
   clearPendingVariantPromptForTab(tabId);
   clearTabPrompts(tabId);
