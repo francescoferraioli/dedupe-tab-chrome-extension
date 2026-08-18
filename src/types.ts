@@ -27,7 +27,11 @@ export type PendingClosure = Readonly<{
   existingTabId: TabId;
 }>;
 
-export type VariantPromptChoice = "switch" | "keep" | "close-other";
+export type VariantPromptChoice =
+  | "switch"
+  | "switch-and-reload"
+  | "keep"
+  | "close-other";
 
 export type PendingVariantPrompt = Readonly<{
   promptId: string;
@@ -43,6 +47,7 @@ export type VariantPromptChoiceMessage = Readonly<{
 
 const VARIANT_PROMPT_CHOICES = new Set<VariantPromptChoice>([
   "switch",
+  "switch-and-reload",
   "keep",
   "close-other",
 ]);

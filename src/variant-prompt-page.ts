@@ -86,10 +86,15 @@ const init = (): void => {
   setSectionVisible("hash-section", readBooleanParam("showHash"));
 
   const switchButton = document.getElementById("switch");
+  const switchAndReloadButton = document.getElementById("switch-and-reload");
   const closeOtherButton = document.getElementById("close-other");
   const keepButton = document.getElementById("keep");
 
   if (!(switchButton instanceof HTMLButtonElement)) {
+    return;
+  }
+
+  if (!(switchAndReloadButton instanceof HTMLButtonElement)) {
     return;
   }
 
@@ -102,6 +107,7 @@ const init = (): void => {
   }
 
   bindButton(switchButton, promptId, "switch");
+  bindButton(switchAndReloadButton, promptId, "switch-and-reload");
   bindButton(closeOtherButton, promptId, "close-other");
   bindButton(keepButton, promptId, "keep");
 

@@ -17,3 +17,14 @@ export const closeTab = async (tabId: TabId): Promise<void> => {
     // Tab may already be gone.
   }
 };
+
+export const updateTabUrl = async (
+  tabId: TabId,
+  url: string,
+): Promise<void> => {
+  try {
+    await chrome.tabs.update(tabId, { url });
+  } catch {
+    // Tab may already be gone.
+  }
+};

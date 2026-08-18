@@ -1,5 +1,5 @@
 import { handleDuplicateTab } from "./auto-close.js";
-import { closeTab, focusTab } from "./tab-actions.js";
+import { closeTab, focusTab, updateTabUrl } from "./tab-actions.js";
 import type {
   DuplicateMatch,
   PendingVariantPrompt,
@@ -89,7 +89,7 @@ export const showVariantPrompt = async (
     url: buildPromptUrl(pendingPrompt),
     type: "popup",
     width: 460,
-    height: 320,
+    height: 380,
     focused: true,
   });
 
@@ -117,6 +117,13 @@ export const handleVariantPromptChoice = async (
 
   if (choice === "switch") {
     await handleDuplicateTab(prompt.match);
+    return;
+  }
+
+  if (choice === "switch-and-reload") {
+    await closeTab(prompt.match.newTab.id);
+    await updateTabUrl(prompt.match.existingTab.id, prompt.match.newTab.url);
+    await focusTab(prompt.match.existingTab.id);
     return;
   }
 
