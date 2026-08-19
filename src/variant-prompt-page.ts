@@ -34,6 +34,7 @@ const readChoiceParam = (
 const sendChoice = async (
   promptId: string,
   choice: VariantPromptChoice,
+  fromTimeout = false,
 ): Promise<void> => {
   if (resolved) {
     return;
@@ -46,6 +47,7 @@ const sendChoice = async (
       type: "variant-prompt-choice",
       promptId,
       choice,
+      ...(fromTimeout ? { fromTimeout: true } : {}),
     });
   } catch {
     // Background may already have handled this prompt.
@@ -171,7 +173,7 @@ const init = (): void => {
   });
 
   setTimeout(() => {
-    void sendChoice(promptId, defaultAction);
+    void sendChoice(promptId, defaultAction, true);
   }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
 };
 

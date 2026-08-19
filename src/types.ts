@@ -49,6 +49,7 @@ export type VariantPromptChoiceMessage = Readonly<{
   type: "variant-prompt-choice";
   promptId: string;
   choice: VariantPromptChoice;
+  fromTimeout?: boolean;
 }>;
 
 const VARIANT_PROMPT_CHOICES = new Set<VariantPromptChoice>([
@@ -74,4 +75,5 @@ export const isVariantPromptChoiceMessage = (
   "promptId" in value &&
   typeof value.promptId === "string" &&
   "choice" in value &&
-  isVariantPromptChoice(value.choice);
+  isVariantPromptChoice(value.choice) &&
+  (!("fromTimeout" in value) || typeof value.fromTimeout === "boolean");

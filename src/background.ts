@@ -136,7 +136,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  void handleVariantPromptChoice(message.promptId, message.choice)
+  void handleVariantPromptChoice(
+    message.promptId,
+    message.choice,
+    message.fromTimeout === true,
+  )
     .then(() => {
       sendResponse({ ok: true });
     })

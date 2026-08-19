@@ -11,6 +11,7 @@ import {
   formatHash,
   formatPathLabel,
   formatSearch,
+  normalizeUrl,
 } from "./url.js";
 
 const pendingVariantPrompts = new Map<string, PendingVariantPrompt>();
@@ -108,6 +109,46 @@ export const showVariantPrompt = async (
   });
 };
 
+const readCurrentTabUrl = async (tabId: TabId): Promise<string | null> => {
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    return tab.url ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const urlsAreSame = (
+  previousUrl: string,
+  currentUrl: string | null,
+): boolean => {
+  if (currentUrl === null) {
+    return false;
+  }
+
+  const previousNormalized = normalizeUrl(previousUrl);
+  const currentNormalized = normalizeUrl(currentUrl);
+  if (previousNormalized === null || currentNormalized === null) {
+    return previousUrl === currentUrl;
+  }
+
+  return previousNormalized === currentNormalized;
+};
+
+const matchUrlsUnchanged = async (match: DuplicateMatch): Promise<boolean> => {
+  const newTabPreviousUrl = match.newTab.url;
+  const existingTabPreviousUrl = match.existingTab.url;
+  const [newTabCurrentUrl, existingTabCurrentUrl] = await Promise.all([
+    readCurrentTabUrl(match.newTab.id),
+    readCurrentTabUrl(match.existingTab.id),
+  ]);
+
+  return (
+    urlsAreSame(newTabPreviousUrl, newTabCurrentUrl) &&
+    urlsAreSame(existingTabPreviousUrl, existingTabCurrentUrl)
+  );
+};
+
 export const applyDedupeAction = async (
   match: DuplicateMatch,
   action: VariantPromptChoice,
@@ -136,6 +177,7 @@ export const applyDedupeAction = async (
 export const handleVariantPromptChoice = async (
   promptId: string,
   choice: VariantPromptChoice,
+  fromTimeout = false,
 ): Promise<void> => {
   const prompt = resolvePendingVariantPrompt(promptId);
   if (prompt === null) {
@@ -143,6 +185,11 @@ export const handleVariantPromptChoice = async (
   }
 
   await closePromptWindow(prompt.windowId);
+
+  if (fromTimeout && !(await matchUrlsUnchanged(prompt.match))) {
+    return;
+  }
+
   await applyDedupeAction(prompt.match, choice);
 };
 
