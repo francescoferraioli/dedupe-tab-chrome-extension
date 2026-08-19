@@ -9,25 +9,49 @@
   <body>
     <main class="settings">
       <h1>Dedupe Tab</h1>
-      <p>
-        Skip duplicate detection when the new tab URL matches any of these
-        regular expressions. One pattern per line. Leave blank to run on every
-        site.
-      </p>
       <form id="settings-form">
-        <label for="blacklist-regexes">Blacklist regexes</label>
-        <textarea
-          id="blacklist-regexes"
-          name="blacklistRegexes"
-          rows="8"
-          spellcheck="false"
-          autocomplete="off"
-          placeholder="github\.com&#10;^https://localhost&#10;canva\.com/.*settings"
-        ></textarea>
-        <p class="hint">
-          Matched against the full tab URL. A URL is skipped if it matches any
-          line.
-        </p>
+        <section>
+          <h2>Blacklist</h2>
+          <p>
+            Skip duplicate detection when the new tab URL matches any of these
+            regular expressions. One pattern per line. Leave blank to run on
+            every site.
+          </p>
+          <label for="blacklist-regexes">Blacklist regexes</label>
+          <textarea
+            id="blacklist-regexes"
+            name="blacklistRegexes"
+            rows="8"
+            spellcheck="false"
+            autocomplete="off"
+            placeholder="github\.com&#10;^https://localhost&#10;canva\.com/.*settings"
+          ></textarea>
+          <p class="hint">
+            Matched against the full tab URL. A URL is skipped if it matches any
+            line.
+          </p>
+        </section>
+        <section>
+          <h2>Default actions</h2>
+          <p>
+            These rules only apply when the same page is already open with a
+            different query string or hash. The first matching rule wins, and
+            that action is used when the prompt timer runs out.
+          </p>
+          <p>
+            Exact duplicates always switch to the existing tab.
+          </p>
+          <div class="rule-list-header">
+            <span>Regex</span>
+            <span>Default action</span>
+          </div>
+          <div id="rules" class="rule-list"></div>
+          <button id="add-rule" type="button">Add rule</button>
+          <p class="hint">
+            If no rule matches, the variant prompt still times out to keep both
+            tabs.
+          </p>
+        </section>
         <p id="status" class="status" role="status" aria-live="polite"></p>
         <div class="actions">
           <button id="save" type="submit" class="primary">Save</button>

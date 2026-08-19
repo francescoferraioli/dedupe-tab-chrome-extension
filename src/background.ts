@@ -7,31 +7,39 @@ import {
 import { clearTabPrompts, hasPrompted, markPrompted } from "./session.js";
 import {
   BLACKLIST_REGEXES_STORAGE_KEY,
+  URL_RULES_STORAGE_KEY,
   isUrlBlacklisted,
   readSettings,
+  resolveVariantDefaultAction,
 } from "./settings.js";
 import { findDuplicateMatch, snapshotTabs } from "./tabs.js";
+import {
+  isVariantPromptChoiceMessage,
+  type TabId,
+  type UrlRule,
+} from "./types.js";
 import {
   clearPendingVariantPromptForTab,
   handleVariantPromptChoice,
   handleVariantPromptWindowClosed,
   showVariantPrompt,
 } from "./variant-prompt.js";
-import { isVariantPromptChoiceMessage, type TabId } from "./types.js";
 import { isHashChangeNavigation, normalizeUrl } from "./url.js";
 
 let cachedBlacklistRegexes: readonly string[] = [];
+let cachedRules: readonly UrlRule[] = [];
 const lastSeenUrls = new Map<TabId, string>();
 
-const refreshBlacklistCache = async (): Promise<void> => {
+const refreshSettingsCache = async (): Promise<void> => {
   const settings = await readSettings();
   cachedBlacklistRegexes = settings.blacklistRegexes;
+  cachedRules = settings.rules;
 };
 
-const blacklistCacheReady = refreshBlacklistCache();
+const settingsCacheReady = refreshSettingsCache();
 
 const evaluateTab = async (tabId: TabId): Promise<void> => {
-  await blacklistCacheReady;
+  await settingsCacheReady;
 
   const tabs = await chrome.tabs.query({});
   const snapshots = snapshotTabs(tabs);
@@ -66,7 +74,10 @@ const evaluateTab = async (tabId: TabId): Promise<void> => {
     return;
   }
 
-  await showVariantPrompt(match);
+  await showVariantPrompt(
+    match,
+    resolveVariantDefaultAction(normalizedUrl, cachedRules),
+  );
 };
 
 const onTabUpdated = (
@@ -106,16 +117,14 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
     return;
   }
 
-  const change = changes[BLACKLIST_REGEXES_STORAGE_KEY];
-  if (change === undefined) {
+  if (
+    changes[URL_RULES_STORAGE_KEY] === undefined &&
+    changes[BLACKLIST_REGEXES_STORAGE_KEY] === undefined
+  ) {
     return;
   }
 
-  cachedBlacklistRegexes = Array.isArray(change.newValue)
-    ? change.newValue.filter(
-        (pattern): pattern is string => typeof pattern === "string",
-      )
-    : [];
+  void refreshSettingsCache();
 });
 
 chrome.tabs.onUpdated.addListener(onTabUpdated);

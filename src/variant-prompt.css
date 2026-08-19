@@ -51,6 +51,12 @@ p {
   margin-top: 20px;
 }
 
+.hint {
+  margin: 12px 0 0;
+  color: color-mix(in srgb, canvasText 70%, transparent);
+  font-size: 13px;
+}
+
 button {
   border: 1px solid color-mix(in srgb, canvasText 20%, transparent);
   border-radius: 8px;

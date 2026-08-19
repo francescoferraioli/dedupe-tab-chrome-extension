@@ -16,13 +16,22 @@ body {
 
 .settings {
   box-sizing: border-box;
-  max-width: 520px;
+  max-width: 720px;
   padding: 20px 24px;
 }
 
 h1 {
   margin: 0 0 12px;
   font-size: 18px;
+}
+
+h2 {
+  margin: 24px 0 12px;
+  font-size: 16px;
+}
+
+section:first-of-type h2 {
+  margin-top: 0;
 }
 
 p {
@@ -56,14 +65,54 @@ textarea:focus {
   outline-offset: 1px;
 }
 
+.rule-list-header,
+.rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.rule-list-header {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.rule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+input[type="text"],
+select {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid color-mix(in srgb, canvasText 20%, transparent);
+  border-radius: 8px;
+  background: canvas;
+  color: canvasText;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+input[type="text"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+input[type="text"]:focus,
+select:focus {
+  outline: 2px solid #4285f4;
+  outline-offset: 1px;
+}
+
 .hint {
   margin-top: 8px;
   color: color-mix(in srgb, canvasText 70%, transparent);
   font-size: 13px;
-}
-
-.hint code {
-  font-size: 12px;
 }
 
 .status {
@@ -111,6 +160,10 @@ button.primary {
   border-color: #4285f4;
   background: #4285f4;
   color: #fff;
+}
+
+button.icon {
+  padding: 10px 12px;
 }
 
 button:hover {

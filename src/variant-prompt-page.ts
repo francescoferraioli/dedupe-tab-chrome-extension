@@ -1,7 +1,19 @@
 import { VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS } from "./config.js";
-import type { VariantPromptChoice } from "./types.js";
+import {
+  isVariantPromptChoice,
+  type VariantPromptChoice,
+} from "./types.js";
 
 let resolved = false;
+
+const DEFAULT_TIMEOUT_ACTION: VariantPromptChoice = "keep";
+
+const ACTION_TIMEOUT_LABELS: Record<VariantPromptChoice, string> = {
+  switch: "switch to the existing tab",
+  "switch-and-reload": "switch and reload",
+  keep: "keep both tabs",
+  "close-other": "close the other tab",
+};
 
 const readSearchParam = (key: string): string | null => {
   const value = new URLSearchParams(window.location.search).get(key);
@@ -10,6 +22,14 @@ const readSearchParam = (key: string): string | null => {
 
 const readBooleanParam = (key: string): boolean =>
   readSearchParam(key) === "true";
+
+const readChoiceParam = (
+  key: string,
+  fallback: VariantPromptChoice,
+): VariantPromptChoice => {
+  const value = readSearchParam(key);
+  return isVariantPromptChoice(value) ? value : fallback;
+};
 
 const sendChoice = async (
   promptId: string,
@@ -58,6 +78,15 @@ const setSectionVisible = (elementId: string, visible: boolean): void => {
   }
 };
 
+const markPrimaryButton = (
+  buttons: Readonly<Record<VariantPromptChoice, HTMLButtonElement>>,
+  defaultAction: VariantPromptChoice,
+): void => {
+  for (const [action, button] of Object.entries(buttons)) {
+    button.classList.toggle("primary", action === defaultAction);
+  }
+};
+
 const init = (): void => {
   const promptId = readSearchParam("promptId");
   const label = readSearchParam("label");
@@ -65,6 +94,7 @@ const init = (): void => {
   const existingSearch = readSearchParam("existingSearch");
   const newHash = readSearchParam("newHash");
   const existingHash = readSearchParam("existingHash");
+  const defaultAction = readChoiceParam("defaultAction", DEFAULT_TIMEOUT_ACTION);
 
   if (
     promptId === null ||
@@ -84,6 +114,10 @@ const init = (): void => {
   setText("existing-hash", existingHash);
   setSectionVisible("search-section", readBooleanParam("showSearch"));
   setSectionVisible("hash-section", readBooleanParam("showHash"));
+  setText(
+    "timeout-hint",
+    `If you do nothing, this will ${ACTION_TIMEOUT_LABELS[defaultAction]}.`,
+  );
 
   const switchButton = document.getElementById("switch");
   const switchAndReloadButton = document.getElementById("switch-and-reload");
@@ -106,22 +140,38 @@ const init = (): void => {
     return;
   }
 
+  const buttons = {
+    switch: switchButton,
+    "switch-and-reload": switchAndReloadButton,
+    "close-other": closeOtherButton,
+    keep: keepButton,
+  };
+
+  markPrimaryButton(buttons, defaultAction);
   bindButton(switchButton, promptId, "switch");
   bindButton(switchAndReloadButton, promptId, "switch-and-reload");
   bindButton(closeOtherButton, promptId, "close-other");
   bindButton(keepButton, promptId, "keep");
 
   window.addEventListener("keydown", (event) => {
-    if (event.key !== "Escape") {
+    if (event.altKey || event.ctrlKey || event.metaKey) {
       return;
     }
 
-    event.preventDefault();
-    void sendChoice(promptId, "keep");
+    if (event.key === "Escape") {
+      event.preventDefault();
+      void sendChoice(promptId, "keep");
+      return;
+    }
+
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      void sendChoice(promptId, defaultAction);
+    }
   });
 
   setTimeout(() => {
-    void sendChoice(promptId, "keep");
+    void sendChoice(promptId, defaultAction);
   }, VARIANT_PROMPT_AUTO_CLOSE_DELAY_MS);
 };
 

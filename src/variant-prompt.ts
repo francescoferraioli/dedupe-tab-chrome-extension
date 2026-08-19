@@ -57,6 +57,7 @@ const buildPromptUrl = (prompt: PendingVariantPrompt): string => {
   url.searchParams.set("existingHash", formatHash(existingTab.url));
   url.searchParams.set("showSearch", String(difference.searchDiffers));
   url.searchParams.set("showHash", String(difference.hashDiffers));
+  url.searchParams.set("defaultAction", prompt.defaultAction);
 
   return url.toString();
 };
@@ -77,19 +78,21 @@ const closePromptWindow = async (
 
 export const showVariantPrompt = async (
   match: DuplicateMatch,
+  defaultAction: VariantPromptChoice,
 ): Promise<void> => {
   const promptId = createPromptId(match);
 
   const pendingPrompt: PendingVariantPrompt = {
     promptId,
     match,
+    defaultAction,
   };
 
   const promptWindow = await chrome.windows.create({
     url: buildPromptUrl(pendingPrompt),
     type: "popup",
     width: 460,
-    height: 380,
+    height: 400,
     focused: true,
   });
 
@@ -100,8 +103,34 @@ export const showVariantPrompt = async (
   registerPendingVariantPrompt({
     promptId,
     match,
+    defaultAction,
     windowId: promptWindow.id,
   });
+};
+
+export const applyDedupeAction = async (
+  match: DuplicateMatch,
+  action: VariantPromptChoice,
+): Promise<void> => {
+  if (action === "switch") {
+    await handleDuplicateTab(match);
+    return;
+  }
+
+  if (action === "switch-and-reload") {
+    await closeTab(match.newTab.id);
+    await updateTabUrl(match.existingTab.id, match.newTab.url);
+    await focusTab(match.existingTab.id);
+    return;
+  }
+
+  if (action === "close-other") {
+    await focusTab(match.newTab.id);
+    await closeTab(match.existingTab.id);
+    return;
+  }
+
+  await focusTab(match.newTab.id);
 };
 
 export const handleVariantPromptChoice = async (
@@ -114,26 +143,7 @@ export const handleVariantPromptChoice = async (
   }
 
   await closePromptWindow(prompt.windowId);
-
-  if (choice === "switch") {
-    await handleDuplicateTab(prompt.match);
-    return;
-  }
-
-  if (choice === "switch-and-reload") {
-    await closeTab(prompt.match.newTab.id);
-    await updateTabUrl(prompt.match.existingTab.id, prompt.match.newTab.url);
-    await focusTab(prompt.match.existingTab.id);
-    return;
-  }
-
-  if (choice === "close-other") {
-    await focusTab(prompt.match.newTab.id);
-    await closeTab(prompt.match.existingTab.id);
-    return;
-  }
-
-  await focusTab(prompt.match.newTab.id);
+  await applyDedupeAction(prompt.match, choice);
 };
 
 export const handleVariantPromptWindowClosed = async (

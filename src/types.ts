@@ -33,9 +33,15 @@ export type VariantPromptChoice =
   | "keep"
   | "close-other";
 
+export type UrlRule = Readonly<{
+  pattern: string;
+  action: VariantPromptChoice;
+}>;
+
 export type PendingVariantPrompt = Readonly<{
   promptId: string;
   match: DuplicateMatch;
+  defaultAction: VariantPromptChoice;
   windowId?: number;
 }>;
 
@@ -52,6 +58,12 @@ const VARIANT_PROMPT_CHOICES = new Set<VariantPromptChoice>([
   "close-other",
 ]);
 
+export const isVariantPromptChoice = (
+  value: unknown,
+): value is VariantPromptChoice =>
+  typeof value === "string" &&
+  VARIANT_PROMPT_CHOICES.has(value as VariantPromptChoice);
+
 export const isVariantPromptChoiceMessage = (
   value: unknown,
 ): value is VariantPromptChoiceMessage =>
@@ -62,5 +74,4 @@ export const isVariantPromptChoiceMessage = (
   "promptId" in value &&
   typeof value.promptId === "string" &&
   "choice" in value &&
-  typeof value.choice === "string" &&
-  VARIANT_PROMPT_CHOICES.has(value.choice as VariantPromptChoice);
+  isVariantPromptChoice(value.choice);
